@@ -108,14 +108,41 @@ interface DragSliderProps {
     negative: React.ReactNode;
   };
   disabled?: boolean;
+  currentSpeed?: number;
+  currentDirection?: Direction;
 }
 
-function DragSlider({ direction, onSpeedChange, maxSpeed, label, icons, disabled = false }: DragSliderProps) {
+function DragSlider({ direction, onSpeedChange, maxSpeed, label, icons, disabled = false, currentSpeed = 0, currentDirection = 'stop' }: DragSliderProps) {
   const [dragPosition, setDragPosition] = useState(0); // -1 to 1 (normalized)
   const [isDragging, setIsDragging] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
   const isVertical = direction === 'vertical';
+
+  // 根据外部状态更新滑块位置（用于键盘控制）
+  useEffect(() => {
+    if (isDragging) return; // 拖动时不更新
+
+    // 判断当前方向是否匹配
+    const isForwardBack = currentDirection === 'forward' || currentDirection === 'backward';
+    const isLeftRight = currentDirection === 'left' || currentDirection === 'right';
+
+    if ((isVertical && isForwardBack) || (!isVertical && isLeftRight)) {
+      // 计算归一化位置 (-1 到 1)
+      const normalizedSpeed = currentSpeed / maxSpeed;
+      let position = 0;
+
+      if (currentDirection === 'forward' || currentDirection === 'right') {
+        position = normalizedSpeed;
+      } else if (currentDirection === 'backward' || currentDirection === 'left') {
+        position = -normalizedSpeed;
+      }
+
+      setDragPosition(position);
+    } else if (currentDirection === 'stop') {
+      setDragPosition(0);
+    }
+  }, [currentSpeed, currentDirection, maxSpeed, isVertical, isDragging]);
 
   const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
     if (disabled) return;
@@ -325,7 +352,10 @@ export function TankController() {
   const [isPowerOn, setIsPowerOn] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const logContainerRef = useRef<HTMLDivElement>(null);
-  
+
+  // 键盘按键状态
+  const keysPressed = useRef<Set<string>>(new Set());
+
   // 节流控制：避免高频调用 API
   const lastApiCallTime = useRef(0);
   const API_THROTTLE_MS = 100; // 100ms 内最多调用一次
@@ -383,6 +413,58 @@ export function TankController() {
   const getCurrentSpeed = (): number => {
     return Math.max(forwardBackSpeed, leftRightSpeed);
   };
+
+  // 键盘控制
+  useEffect(() => {
+    if (!isPowerOn) return; // 电源关闭时不响应键盘
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+
+      // 避免重复触发
+      if (keysPressed.current.has(key)) return;
+      keysPressed.current.add(key);
+
+      switch (key) {
+        case 'w':
+          handleForwardBackChange(maxSpeed, 'forward');
+          break;
+        case 's':
+          handleForwardBackChange(maxSpeed, 'backward');
+          break;
+        case 'a':
+          handleLeftRightChange(maxSpeed, 'left');
+          break;
+        case 'd':
+          handleLeftRightChange(maxSpeed, 'right');
+          break;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      keysPressed.current.delete(key);
+
+      switch (key) {
+        case 'w':
+        case 's':
+          handleForwardBackChange(0, 'stop');
+          break;
+        case 'a':
+        case 'd':
+          handleLeftRightChange(0, 'stop');
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isPowerOn, maxSpeed]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-4">
@@ -457,6 +539,8 @@ export function TankController() {
                 negative: <ArrowDown className="size-5" />
               }}
               disabled={!isPowerOn}
+              currentSpeed={forwardBackSpeed}
+              currentDirection={forwardBackDir}
             />
           </div>
 
@@ -533,6 +617,8 @@ export function TankController() {
                 positive: <ArrowRight className="size-5" />
               }}
               disabled={!isPowerOn}
+              currentSpeed={leftRightSpeed}
+              currentDirection={leftRightDir}
             />
           </div>
         </div>

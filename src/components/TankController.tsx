@@ -15,14 +15,15 @@ type Direction = 'forward' | 'backward' | 'left' | 'right' | 'stop';
 interface SpeedProgressBarProps {
   value: number;
   onChange: (value: number) => void;
+  disabled?: boolean;
 }
 
-function SpeedProgressBar({ value, onChange }: SpeedProgressBarProps) {
+function SpeedProgressBar({ value, onChange, disabled = false }: SpeedProgressBarProps) {
   const [isDragging, setIsDragging] = useState(false);
   const progressRef = useRef<HTMLDivElement>(null);
 
   const updateValue = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
-    if (!progressRef.current) return;
+    if (disabled || !progressRef.current) return;
 
     const rect = progressRef.current.getBoundingClientRect();
     let clientX: number;
@@ -40,6 +41,7 @@ function SpeedProgressBar({ value, onChange }: SpeedProgressBarProps) {
   };
 
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if (disabled) return;
     e.preventDefault();
     setIsDragging(true);
     updateValue(e);
@@ -68,9 +70,9 @@ function SpeedProgressBar({ value, onChange }: SpeedProgressBarProps) {
 
   return (
     <div className="space-y-2">
-      <div 
+      <div
         ref={progressRef}
-        className="relative h-3 bg-gray-600 rounded-full overflow-hidden cursor-pointer"
+        className={`relative h-3 bg-gray-600 rounded-full overflow-hidden ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
         onMouseDown={handleMouseDown}
         onTouchStart={handleMouseDown}
       >
@@ -105,9 +107,10 @@ interface DragSliderProps {
     positive: React.ReactNode;
     negative: React.ReactNode;
   };
+  disabled?: boolean;
 }
 
-function DragSlider({ direction, onSpeedChange, maxSpeed, label, icons }: DragSliderProps) {
+function DragSlider({ direction, onSpeedChange, maxSpeed, label, icons, disabled = false }: DragSliderProps) {
   const [dragPosition, setDragPosition] = useState(0); // -1 to 1 (normalized)
   const [isDragging, setIsDragging] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -115,6 +118,7 @@ function DragSlider({ direction, onSpeedChange, maxSpeed, label, icons }: DragSl
   const isVertical = direction === 'vertical';
 
   const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if (disabled) return;
     e.preventDefault();
     setIsDragging(true);
     updatePosition(e);
@@ -240,7 +244,7 @@ function DragSlider({ direction, onSpeedChange, maxSpeed, label, icons }: DragSl
         ref={sliderRef}
         className={`relative bg-slate-900/50 border-2 border-slate-700 rounded-full ${
           isVertical ? 'h-80 w-20' : 'w-80 h-20'
-        } ${isDragging ? 'border-blue-500' : ''} cursor-grab active:cursor-grabbing flex items-center justify-center overflow-hidden`}
+        } ${isDragging ? 'border-blue-500' : ''} ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-grab active:cursor-grabbing'} flex items-center justify-center overflow-hidden`}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
       >
@@ -330,22 +334,15 @@ export function TankController() {
   useEffect(() => {
     setLogCallback((log: string) => {
       setLogs(prev => {
-        const newLogs = [...prev, log];
-        // 最多保留 50 条日志
-        if (newLogs.length > 50) {
-          return newLogs.slice(-50);
+        const newLogs = [log, ...prev]; // 最新日志放在最前面
+        // 最多保留 30 条日志
+        if (newLogs.length > 30) {
+          return newLogs.slice(0, 30);
         }
         return newLogs;
       });
     });
   }, []);
-  
-  // 自动滚动到最新日志
-  useEffect(() => {
-    if (logContainerRef.current) {
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
-    }
-  }, [logs]);
 
   // 发送控制命令到后端（带节流）
   const sendControlToApi = (direction: Direction, speed: number) => {
@@ -459,6 +456,7 @@ export function TankController() {
                 positive: <ArrowUp className="size-5" />,
                 negative: <ArrowDown className="size-5" />
               }}
+              disabled={!isPowerOn}
             />
           </div>
 
@@ -467,51 +465,55 @@ export function TankController() {
             <h3 className="text-white text-center">最大速度设置</h3>
             <div className="space-y-4">
               {/* 可拖拽进度条 */}
-              <SpeedProgressBar value={maxSpeed} onChange={setMaxSpeed} />
+              <SpeedProgressBar value={maxSpeed} onChange={setMaxSpeed} disabled={!isPowerOn} />
               
               {/* 速度快捷按钮 */}
               <div className="grid grid-cols-4 gap-2">
                 <Button
                   variant="outline"
                   className={`${
-                    maxSpeed === 30 
-                      ? 'bg-blue-600 hover:bg-blue-700 border-blue-500 text-white' 
+                    maxSpeed === 30
+                      ? 'bg-blue-600 hover:bg-blue-700 border-blue-500 text-white'
                       : 'bg-slate-700 hover:bg-slate-600 border-slate-600 text-white'
                   }`}
                   onClick={() => setMaxSpeed(30)}
+                  disabled={!isPowerOn}
                 >
                   30
                 </Button>
                 <Button
                   variant="outline"
                   className={`${
-                    maxSpeed === 50 
-                      ? 'bg-blue-600 hover:bg-blue-700 border-blue-500 text-white' 
+                    maxSpeed === 50
+                      ? 'bg-blue-600 hover:bg-blue-700 border-blue-500 text-white'
                       : 'bg-slate-700 hover:bg-slate-600 border-slate-600 text-white'
                   }`}
                   onClick={() => setMaxSpeed(50)}
+                  disabled={!isPowerOn}
                 >
                   50
                 </Button>
                 <Button
                   variant="outline"
                   className={`${
-                    maxSpeed === 70 
-                      ? 'bg-blue-600 hover:bg-blue-700 border-blue-500 text-white' 
+                    maxSpeed === 70
+                      ? 'bg-blue-600 hover:bg-blue-700 border-blue-500 text-white'
                       : 'bg-slate-700 hover:bg-slate-600 border-slate-600 text-white'
                   }`}
                   onClick={() => setMaxSpeed(70)}
+                  disabled={!isPowerOn}
                 >
                   70
                 </Button>
                 <Button
                   variant="outline"
                   className={`${
-                    maxSpeed === 100 
-                      ? 'bg-blue-600 hover:bg-blue-700 border-blue-500 text-white' 
+                    maxSpeed === 100
+                      ? 'bg-blue-600 hover:bg-blue-700 border-blue-500 text-white'
                       : 'bg-slate-700 hover:bg-slate-600 border-slate-600 text-white'
                   }`}
                   onClick={() => setMaxSpeed(100)}
+                  disabled={!isPowerOn}
                 >
                   100
                 </Button>
@@ -530,6 +532,7 @@ export function TankController() {
                 negative: <ArrowLeft className="size-5" />,
                 positive: <ArrowRight className="size-5" />
               }}
+              disabled={!isPowerOn}
             />
           </div>
         </div>
@@ -556,7 +559,7 @@ export function TankController() {
               <div className="text-gray-400 text-center py-4">暂无日志</div>
             ) : (
               logs.map((log, index) => (
-                <div key={index} className="text-white mb-1 break-all">
+                <div key={index} className={`mb-1 break-all ${index < 3 ? 'text-white' : 'text-slate-400'}`}>
                   {log}
                 </div>
               ))

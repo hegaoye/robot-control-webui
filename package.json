@@ -51,7 +51,9 @@
           "vite": "6.3.5"
       },
       "scripts": {
+          "start": "vite",
           "dev": "vite",
-          "build": "vite build"
+          "build": "vite build",
+          "preview": "vite preview --port 3000"
       }
   }

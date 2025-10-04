@@ -533,7 +533,7 @@ export function TankController() {
               direction="vertical"
               onSpeedChange={handleForwardBackChange}
               maxSpeed={maxSpeed}
-              label="前进 / 后退"
+              label="前进 (W) / 后退 (S)"
               icons={{
                 positive: <ArrowUp className="size-5" />,
                 negative: <ArrowDown className="size-5" />
@@ -611,7 +611,7 @@ export function TankController() {
               direction="horizontal"
               onSpeedChange={handleLeftRightChange}
               maxSpeed={maxSpeed}
-              label="左转 / 右转"
+              label="左转 (A) / 右转 (D)"
               icons={{
                 negative: <ArrowLeft className="size-5" />,
                 positive: <ArrowRight className="size-5" />
